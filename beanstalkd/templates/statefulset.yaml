@@ -1,0 +1,52 @@
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: {{ template "beanstalkd.fullname" . }}
+  labels:
+    app: {{ template "beanstalkd.name" . }}
+    chart: {{ template "beanstalkd.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  serviceName: {{ template "beanstalkd.fullname" . }}
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "beanstalkd.name" . }}
+        chart: {{ template "beanstalkd.chart" . }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+    spec:
+      containers:
+        - name: {{ template "beanstalkd.name" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+          - name: beanstalkd
+            containerPort: 11300
+            protocol: TCP
+          livenessProbe:
+            tcpSocket:
+              port: beanstalkd
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            tcpSocket:
+              port: beanstalkd
+            initialDelaySeconds: 5
+            timeoutSeconds: 1
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}

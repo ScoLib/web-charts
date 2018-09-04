@@ -1,0 +1,71 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ template "nginx.fullname" . }}
+  labels:
+    app: {{ template "nginx.name" . }}
+    chart: {{ template "nginx.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ template "nginx.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "nginx.name" . }}
+        release: {{ .Release.Name }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      volumes: 
+        - name: nginx-conf
+          configMap:
+            name: nginx-conf
+            items:
+            - key: nginx.conf
+              path: nginx.conf
+        - name: sites-conf
+          configMap:
+            name: sites-conf
+        - name: www
+        {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (include "nginx.fullname" .) }}
+        {{- else }}
+          emptyDir: {}
+        {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: sites-conf
+              mountPath: /etc/nginx/sites-available
+            - name: www
+              mountPath: /var/www
+          ports:
+            - name: http
+              containerPort: 80
+            - name: https
+              containerPort: 443
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
